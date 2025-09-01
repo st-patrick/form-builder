@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Mini Form Builder</title>
+<style>
+	body {
+		margin: 0;
+		font: 14px system-ui, Segoe UI, Roboto, Arial
+	}
+
+	header {
+		display: flex;
+		gap: .5rem;
+		padding: .5rem;
+		border-bottom: 1px solid #ddd
+	}
+
+	header button {
+		padding: .35rem .6rem
+	}
+
+	main {
+		display: flex;
+		gap: .5rem;
+		padding: .5rem;
+		height: calc(100vh - 48px);
+		box-sizing: border-box
+	}
+
+	textarea {
+		flex: 1;
+		resize: none;
+		border: 1px solid #ddd;
+		border-radius: 6px;
+		padding: .5rem
+	}
+
+	#out {
+		flex: 1;
+		border: 1px solid #ddd;
+		border-radius: 6px;
+		padding: .75rem;
+		overflow: auto
+	}
+
+	label {
+		display: block;
+		margin: .5rem 0 .15rem
+	}
+
+	.row {
+		margin: .5rem 0
+	}
+
+	.hint {
+		color: #666;
+		font-size: 12px
+	}
+
+	.box {
+		border: 1px dashed #bbb;
+		border-radius: 6px;
+		padding: .5rem;
+		margin: .5rem 0
+	}
+
+	.vals {
+		white-space: pre-wrap;
+		background: #fafafa;
+		border-radius: 6px;
+		padding: .5rem;
+		border: 1px solid #eee
+	}
+</style>
+<header>
+	<button id="apply">Apply</button>
+	<button id="fmt">Format</button>
+	<button id="reset">Reset</button>
+	<button id="copy">Copy JSON</button>
+	<span class="hint">Edit JSON → Apply. Autosaves.</span>
+</header>
+<main>
+	<textarea id="dsl" spellcheck="false"></textarea>
+	<div id="out"></div>
+</main>
+<script>
+	const $ = s => document.querySelector(s), LS = "mini_form_builder_v1";
+	const def = {
+		t: "Contact", d: "Say hi 👋", a: "#", m: "POST", f: [
+			{ k: "name", l: "Name", t: "text", r: 1, p: "Your full name" },
+			{ k: "email", l: "Email", t: "email", r: 1 },
+			{ k: "age", l: "Age", t: "number" },
+			{ k: "about", l: "About you", t: "textarea", p: "Short bio" },
+			{ k: "color", l: "Favorite color", t: "select", o: ["red", "green", "blue"] },
+			{ k: "news", l: "Subscribe to news", t: "checkbox" }
+		]
+	};
+	function load() { let s = localStorage.getItem(LS); $("#dsl").value = s || JSON.stringify(def, null, 2); }
+	function save() { localStorage.setItem(LS, $("#dsl").value); }
+	function fmt() { try { $("#dsl").value = JSON.stringify(JSON.parse($("#dsl").value), null, 2); save(); } catch (e) { alert("Invalid JSON"); } }
+	function reset() { if (confirm("Reset to default?")) { $("#dsl").value = JSON.stringify(def, null, 2); save(); render(); } }
+	function copy() { navigator.clipboard.writeText($("#dsl").value); }
+	function render() {
+		save();
+		let spec; try { spec = JSON.parse($("#dsl").value) } catch (e) { $("#out").innerHTML = "<b>JSON error:</b> " + e.message; return; }
+		const c = document.createElement("div");
+		const h = document.createElement("h2"); h.textContent = spec.t || "Form"; c.appendChild(h);
+		if (spec.d) { const p = document.createElement("div"); p.textContent = spec.d; c.appendChild(p); }
+		const form = document.createElement("form"); form.action = spec.a || "#"; form.method = spec.m || "POST";
+		(spec.f || []).forEach(x => {
+			const wrap = document.createElement("div"); wrap.className = "row";
+			if (x.l) { const lab = document.createElement("label"); lab.htmlFor = x.k; lab.textContent = x.l + (x.r ? " *" : ""); wrap.appendChild(lab); }
+			let el;
+			if (x.t === "textarea") { el = document.createElement("textarea"); }
+			else if (x.t === "select") { el = document.createElement("select"); (x.o || []).forEach(v => { const o = document.createElement("option"); o.value = o.text = v; if (x.v == v) o.selected = 1; el.appendChild(o); }); }
+			else if (x.t === "radio") { el = document.createElement("div"); (x.o || []).forEach(v => { const id = x.k + "_" + v; const r = document.createElement("input"); r.type = "radio"; r.name = x.k; r.value = v; r.id = id; if (x.v == v) r.checked = 1; const lab = document.createElement("label"); lab.htmlFor = id; lab.textContent = v; lab.style.display = "inline"; lab.style.marginRight = ".75rem"; el.appendChild(r); el.appendChild(lab); }); }
+			else if (x.t === "checkbox") { el = document.createElement("input"); el.type = "checkbox"; el.checked = !!x.v; }
+			else { el = document.createElement("input"); el.type = x.t || "text"; if (x.v != null) el.value = x.v; }
+			if (x.t !== "radio") { el.id = x.k; el.name = x.k; if (x.p) el.placeholder = x.p; if (x.r) el.required = 1; }
+			wrap.appendChild(el); c.appendChild(wrap);
+		});
+		const s = document.createElement("button"); s.textContent = "Submit"; s.type = "submit"; form.appendChild(s);
+		const box = document.createElement("div"); box.className = "box"; box.innerHTML = "<b>Output</b> (on submit)";
+		const vals = document.createElement("div"); vals.className = "vals"; vals.textContent = "—";
+		box.appendChild(vals);
+		form.addEventListener("submit", e => {
+			e.preventDefault();
+			const data = {};
+			(spec.f || []).forEach(x => {
+				if (x.t === "radio") { const v = [...form.querySelectorAll('input[name="' + x.k + '"]')].find(i => i.checked); data[x.k] = v ? v.value : null; }
+				else if (x.t === "checkbox") { const i = form.querySelector('#' + x.k); data[x.k] = !!i.checked; }
+				else { const i = form.querySelector('#' + x.k); data[x.k] = i ? i.value : null; }
+			});
+			vals.textContent = JSON.stringify(data, null, 2);
+		});
+		c.appendChild(form); c.appendChild(box); $("#out").innerHTML = ""; $("#out").appendChild(c);
+	}
+	$("#apply").onclick = render; $("#fmt").onclick = fmt; $("#reset").onclick = reset; $("#copy").onclick = copy;
+	$("#dsl").addEventListener("input", () => save());
+	load(); render();
+</script>
