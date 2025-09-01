@@ -1,140 +1,240 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
-<title>Mini Form Builder</title>
+<title>Mini Form Builder (Readable)</title>
 <style>
-	body {
-		margin: 0;
-		font: 14px system-ui, Segoe UI, Roboto, Arial
-	}
-
-	header {
-		display: flex;
-		gap: .5rem;
-		padding: .5rem;
-		border-bottom: 1px solid #ddd
-	}
-
-	header button {
-		padding: .35rem .6rem
-	}
-
-	main {
-		display: flex;
-		gap: .5rem;
-		padding: .5rem;
-		height: calc(100vh - 48px);
-		box-sizing: border-box
-	}
-
-	textarea {
-		flex: 1;
-		resize: none;
-		border: 1px solid #ddd;
-		border-radius: 6px;
-		padding: .5rem
-	}
-
-	#out {
-		flex: 1;
-		border: 1px solid #ddd;
-		border-radius: 6px;
-		padding: .75rem;
-		overflow: auto
-	}
-
-	label {
-		display: block;
-		margin: .5rem 0 .15rem
-	}
-
-	.row {
-		margin: .5rem 0
-	}
-
-	.hint {
-		color: #666;
-		font-size: 12px
-	}
-
-	.box {
-		border: 1px dashed #bbb;
-		border-radius: 6px;
-		padding: .5rem;
-		margin: .5rem 0
-	}
-
-	.vals {
-		white-space: pre-wrap;
-		background: #fafafa;
-		border-radius: 6px;
-		padding: .5rem;
-		border: 1px solid #eee
-	}
+  :root { --b:#d9d9e3; --t:#222; --mut:#666; }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px system-ui,Segoe UI,Roboto,Arial;color:var(--t)}
+  header{display:flex;gap:.5rem;align-items:center;padding:.5rem .75rem;border-bottom:1px solid var(--b)}
+  header button{padding:.35rem .6rem;border:1px solid var(--b);background:#fff;border-radius:6px;cursor:pointer}
+  header .hint{color:var(--mut);font-size:12px}
+  main{display:flex;gap:.75rem;padding:.75rem;height:calc(100vh - 52px)}
+  textarea{flex:1;resize:none;border:1px solid var(--b);border-radius:8px;padding:.6rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+  #out{flex:1;border:1px solid var(--b);border-radius:8px;padding:.9rem;overflow:auto}
+  h2{margin:.25rem 0 .5rem}
+  .row{margin:.5rem 0}
+  label{display:block;margin:0 0 .2rem}
+  .mut{color:var(--mut);font-size:12px}
+  .box{border:1px dashed var(--b);border-radius:8px;padding:.6rem;margin:.75rem 0}
+  pre{margin:.35rem 0;background:#fafafa;border:1px solid #eee;border-radius:8px;padding:.6rem;white-space:pre-wrap}
+  .netok{color:#0a7a0a}.neterr{color:#b00020}
 </style>
+
 <header>
-	<button id="apply">Apply</button>
-	<button id="fmt">Format</button>
-	<button id="reset">Reset</button>
-	<button id="copy">Copy JSON</button>
-	<span class="hint">Edit JSON → Apply. Autosaves.</span>
+  <button id="apply">Apply</button>
+  <button id="format">Format</button>
+  <button id="reset">Reset</button>
+  <button id="copy">Copy JSON</button>
+  <span class="hint">Edit JSON → Apply. Autosaves to localStorage.</span>
 </header>
+
 <main>
-	<textarea id="dsl" spellcheck="false"></textarea>
-	<div id="out"></div>
+  <textarea id="dsl" spellcheck="false"></textarea>
+  <div id="out"></div>
 </main>
+
 <script>
-	const $ = s => document.querySelector(s), LS = "mini_form_builder_v1";
-	const def = {
-		t: "Contact", d: "Say hi 👋", a: "#", m: "POST", f: [
-			{ k: "name", l: "Name", t: "text", r: 1, p: "Your full name" },
-			{ k: "email", l: "Email", t: "email", r: 1 },
-			{ k: "age", l: "Age", t: "number" },
-			{ k: "about", l: "About you", t: "textarea", p: "Short bio" },
-			{ k: "color", l: "Favorite color", t: "select", o: ["red", "green", "blue"] },
-			{ k: "news", l: "Subscribe to news", t: "checkbox" }
-		]
-	};
-	function load() { let s = localStorage.getItem(LS); $("#dsl").value = s || JSON.stringify(def, null, 2); }
-	function save() { localStorage.setItem(LS, $("#dsl").value); }
-	function fmt() { try { $("#dsl").value = JSON.stringify(JSON.parse($("#dsl").value), null, 2); save(); } catch (e) { alert("Invalid JSON"); } }
-	function reset() { if (confirm("Reset to default?")) { $("#dsl").value = JSON.stringify(def, null, 2); save(); render(); } }
-	function copy() { navigator.clipboard.writeText($("#dsl").value); }
-	function render() {
-		save();
-		let spec; try { spec = JSON.parse($("#dsl").value) } catch (e) { $("#out").innerHTML = "<b>JSON error:</b> " + e.message; return; }
-		const c = document.createElement("div");
-		const h = document.createElement("h2"); h.textContent = spec.t || "Form"; c.appendChild(h);
-		if (spec.d) { const p = document.createElement("div"); p.textContent = spec.d; c.appendChild(p); }
-		const form = document.createElement("form"); form.action = spec.a || "#"; form.method = spec.m || "POST";
-		(spec.f || []).forEach(x => {
-			const wrap = document.createElement("div"); wrap.className = "row";
-			if (x.l) { const lab = document.createElement("label"); lab.htmlFor = x.k; lab.textContent = x.l + (x.r ? " *" : ""); wrap.appendChild(lab); }
-			let el;
-			if (x.t === "textarea") { el = document.createElement("textarea"); }
-			else if (x.t === "select") { el = document.createElement("select"); (x.o || []).forEach(v => { const o = document.createElement("option"); o.value = o.text = v; if (x.v == v) o.selected = 1; el.appendChild(o); }); }
-			else if (x.t === "radio") { el = document.createElement("div"); (x.o || []).forEach(v => { const id = x.k + "_" + v; const r = document.createElement("input"); r.type = "radio"; r.name = x.k; r.value = v; r.id = id; if (x.v == v) r.checked = 1; const lab = document.createElement("label"); lab.htmlFor = id; lab.textContent = v; lab.style.display = "inline"; lab.style.marginRight = ".75rem"; el.appendChild(r); el.appendChild(lab); }); }
-			else if (x.t === "checkbox") { el = document.createElement("input"); el.type = "checkbox"; el.checked = !!x.v; }
-			else { el = document.createElement("input"); el.type = x.t || "text"; if (x.v != null) el.value = x.v; }
-			if (x.t !== "radio") { el.id = x.k; el.name = x.k; if (x.p) el.placeholder = x.p; if (x.r) el.required = 1; }
-			wrap.appendChild(el); c.appendChild(wrap);
-		});
-		const s = document.createElement("button"); s.textContent = "Submit"; s.type = "submit"; form.appendChild(s);
-		const box = document.createElement("div"); box.className = "box"; box.innerHTML = "<b>Output</b> (on submit)";
-		const vals = document.createElement("div"); vals.className = "vals"; vals.textContent = "—";
-		box.appendChild(vals);
-		form.addEventListener("submit", e => {
-			e.preventDefault();
-			const data = {};
-			(spec.f || []).forEach(x => {
-				if (x.t === "radio") { const v = [...form.querySelectorAll('input[name="' + x.k + '"]')].find(i => i.checked); data[x.k] = v ? v.value : null; }
-				else if (x.t === "checkbox") { const i = form.querySelector('#' + x.k); data[x.k] = !!i.checked; }
-				else { const i = form.querySelector('#' + x.k); data[x.k] = i ? i.value : null; }
-			});
-			vals.textContent = JSON.stringify(data, null, 2);
-		});
-		c.appendChild(form); c.appendChild(box); $("#out").innerHTML = ""; $("#out").appendChild(c);
-	}
-	$("#apply").onclick = render; $("#fmt").onclick = fmt; $("#reset").onclick = reset; $("#copy").onclick = copy;
-	$("#dsl").addEventListener("input", () => save());
-	load(); render();
+/* ---------- Storage & Defaults ---------- */
+const LS_KEY = "mini_form_builder_readable_v1";
+const $ = s => document.querySelector(s);
+
+const DEFAULT_SPEC = {
+  "title": "Contact",
+  "description": "Say hi 👋",
+  "send": {
+    "url": "",               // put your POST URL here (optional)
+    "method": "POST",
+    "headers": { "Content-Type": "application/json" }
+  },
+  "fields": [
+    {"key":"name",  "label":"Name",           "type":"text",     "required":true,  "placeholder":"Your full name"},
+    {"key":"email", "label":"Email",          "type":"email",    "required":true},
+    {"key":"age",   "label":"Age",            "type":"number"},
+    {"key":"about", "label":"About you",      "type":"textarea", "placeholder":"Short bio"},
+    {"key":"color", "label":"Favorite color", "type":"select",   "options":["red","green","blue"]},
+    {"key":"news",  "label":"Subscribe?",     "type":"checkbox", "value":true}
+  ]
+};
+
+function loadSpec() {
+  const raw = localStorage.getItem(LS_KEY);
+  $("#dsl").value = raw ? raw : JSON.stringify(DEFAULT_SPEC, null, 2);
+}
+function saveSpec() {
+  localStorage.setItem(LS_KEY, $("#dsl").value);
+}
+function formatSpec() {
+  try { $("#dsl").value = JSON.stringify(JSON.parse($("#dsl").value), null, 2); saveSpec(); }
+  catch (e) { alert("Invalid JSON: " + e.message); }
+}
+function resetSpec() {
+  if (!confirm("Reset to default?")) return;
+  $("#dsl").value = JSON.stringify(DEFAULT_SPEC, null, 2);
+  saveSpec();
+  render();
+}
+function copySpec() { navigator.clipboard.writeText($("#dsl").value); }
+
+/* ---------- Render ---------- */
+function el(tag, props={}, ...kids){
+  const node = document.createElement(tag);
+  Object.entries(props).forEach(([k,v])=>{
+    if (k === "class") node.className = v;
+    else if (k === "for") node.htmlFor = v;
+    else if (k in node) node[k] = v;
+    else node.setAttribute(k, v);
+  });
+  kids.forEach(k => node.appendChild(typeof k === "string" ? document.createTextNode(k) : k));
+  return node;
+}
+
+function parseSpec() {
+  try { return [JSON.parse($("#dsl").value), null]; }
+  catch (e) { return [null, e]; }
+}
+
+function buildField(form, f) {
+  const row = el("div", {class:"row"});
+  const key = f.key;
+  const labelText = f.label || key;
+  if (labelText && f.type !== "radio") row.appendChild(el("label", {"for": key}, labelText + (f.required ? " *" : "")));
+
+  let fieldEl;
+
+  if (f.type === "textarea") {
+    fieldEl = el("textarea", {id:key, name:key, placeholder:f.placeholder||"", required:!!f.required});
+    if (f.value != null) fieldEl.value = f.value;
+
+  } else if (f.type === "select") {
+    fieldEl = el("select", {id:key, name:key, required:!!f.required});
+    (f.options||[]).forEach(opt=>{
+      const o = el("option", {value:String(opt)}, String(opt));
+      if (f.value === opt) o.selected = true;
+      fieldEl.appendChild(o);
+    });
+
+  } else if (f.type === "radio") {
+    // radios are a set; give them the same name
+    fieldEl = el("div");
+    if (labelText) row.appendChild(el("label", {}, labelText + (f.required ? " *" : "")));
+    (f.options||[]).forEach((opt, idx)=>{
+      const id = key + "_" + String(opt).replace(/\W+/g,"_");
+      const r = el("input", {type:"radio", id, name:key, value:String(opt)});
+      if (f.value === opt) r.checked = true;
+      if (f.required && idx === 0) r.required = true; // HTML requires on one is enough
+      const lab = el("label", {"for":id, class:"", style:"display:inline-block;margin-right:.75rem;vertical-align:middle"}, String(opt));
+      fieldEl.appendChild(r); fieldEl.appendChild(lab);
+    });
+
+  } else if (f.type === "checkbox") {
+    fieldEl = el("input", {type:"checkbox", id:key, name:key});
+    if (f.value) fieldEl.checked = true;
+    // show label inline for checkbox
+    const inline = el("label", {"for":key, style:"display:inline;margin-left:.35rem"}, labelText + (f.required ? " *" : ""));
+    row.appendChild(fieldEl); row.appendChild(inline);
+    return row;
+
+  } else {
+    // default to input type (text/email/number/date/password/…)
+    fieldEl = el("input", {type:f.type||"text", id:key, name:key, placeholder:f.placeholder||"", required:!!f.required});
+    if (f.value != null) fieldEl.value = f.value;
+  }
+
+  row.appendChild(fieldEl);
+  return row;
+}
+
+function collectData(form, fields) {
+  const data = {};
+  (fields||[]).forEach(f=>{
+    if (f.type === "radio") {
+      const checked = form.querySelector(`input[name="${f.key}"]:checked`);
+      data[f.key] = checked ? checked.value : null;
+    } else if (f.type === "checkbox") {
+      const i = form.querySelector(`#${CSS.escape(f.key)}`);
+      data[f.key] = !!(i && i.checked);
+    } else {
+      const i = form.querySelector(`#${CSS.escape(f.key)}`);
+      data[f.key] = i ? i.value : null;
+    }
+  });
+  return data;
+}
+
+async function maybeSend(spec, payload, ui) {
+  const cfg = spec.send || {};
+  const url = (cfg.url||"").trim();
+  if (!url) { ui.net.textContent = "Not sending (no send.url)."; ui.net.className="mut"; return; }
+
+  const method = (cfg.method||"POST").toUpperCase();
+  const headers = Object.assign({"Content-Type":"application/json"}, cfg.headers||{});
+  ui.net.textContent = "Sending…"; ui.net.className="mut";
+
+  try {
+    const res = await fetch(url, {method, headers, body: JSON.stringify(payload)});
+    const text = await res.text();
+    ui.net.textContent = `HTTP ${res.status} ${res.ok ? "OK" : res.statusText}`;
+    ui.net.className = res.ok ? "netok" : "neterr";
+    ui.resp.textContent = text || "(empty response body)";
+  } catch (err) {
+    ui.net.textContent = "Network error: " + err.message;
+    ui.net.className = "neterr";
+  }
+}
+
+function render(){
+  saveSpec();
+
+  const [spec, err] = parseSpec();
+  if (err) { $("#out").innerHTML = "<b>JSON error:</b> " + err.message; return; }
+
+  // container
+  const root = el("div");
+
+  // title/desc
+  root.appendChild(el("h2", {}, spec.title || "Form"));
+  if (spec.description) root.appendChild(el("div", {class:"mut"}, spec.description));
+
+  // form
+  const form = el("form", {action:"#", method:"POST"});
+  (spec.fields||[]).forEach(f => form.appendChild(buildField(form, f)));
+
+  // submit
+  form.appendChild(el("button", {type:"submit"}, "Submit"));
+
+  // output panels
+  const box = el("div", {class:"box"});
+  const outHead = el("div", {}, el("b", {}, "Submission Preview "), el("span",{class:"mut"},"(no navigation)"));
+  const outPre = el("pre", {}, "—");
+  const net = el("div", {class:"mut", style:"margin-top:.25rem"}, "Not sent");
+  const resp = el("pre", {}, "");
+  box.appendChild(outHead);
+  box.appendChild(outPre);
+  box.appendChild(el("div",{class:"mut",style:"margin-top:.25rem"},"If send.url is set, we POST JSON below and show server response:"));
+  box.appendChild(net);
+  box.appendChild(resp);
+
+  form.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const values = collectData(form, spec.fields||[]);
+    const payload = { data: values, meta: { formTitle: spec.title||"", timestamp: new Date().toISOString() } };
+    outPre.textContent = JSON.stringify(payload, null, 2);
+    await maybeSend(spec, payload, {net, resp});
+  });
+
+  root.appendChild(form);
+  root.appendChild(box);
+
+  $("#out").innerHTML = "";
+  $("#out").appendChild(root);
+}
+
+/* ---------- Wire up ---------- */
+$("#apply").onclick = render;
+$("#format").onclick = formatSpec;
+$("#reset").onclick = resetSpec;
+$("#copy").onclick = copySpec;
+$("#dsl").addEventListener("input", saveSpec);
+loadSpec();
+render();
 </script>
