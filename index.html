@@ -39,20 +39,114 @@ const LS_KEY = "mini_form_builder_readable_v1";
 const $ = s => document.querySelector(s);
 
 const DEFAULT_SPEC = {
-  "title": "Contact",
-  "description": "Say hi 👋",
+  "title": "All-Features Demo Form",
+  "description": "This JSON showcases every supported option/type. Edit freely and hit Apply.",
   "send": {
-    "url": "",               // put your POST URL here (optional)
+    "url": "https://httpbin.org/post",
     "method": "POST",
-    "headers": { "Content-Type": "application/json" }
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer DEMO_TOKEN_123",
+      "X-Form-Id": "all-features-demo"
+    }
   },
   "fields": [
-    {"key":"name",  "label":"Name",           "type":"text",     "required":true,  "placeholder":"Your full name"},
-    {"key":"email", "label":"Email",          "type":"email",    "required":true},
-    {"key":"age",   "label":"Age",            "type":"number"},
-    {"key":"about", "label":"About you",      "type":"textarea", "placeholder":"Short bio"},
-    {"key":"color", "label":"Favorite color", "type":"select",   "options":["red","green","blue"]},
-    {"key":"news",  "label":"Subscribe?",     "type":"checkbox", "value":true}
+    {
+      "key": "full_name",
+      "label": "Full name",
+      "type": "text",
+      "required": true,
+      "placeholder": "Ada Lovelace",
+      "value": "Ada Lovelace"
+    },
+    {
+      "key": "email",
+      "label": "Email",
+      "type": "email",
+      "required": true,
+      "placeholder": "you@example.com"
+    },
+    {
+      "key": "password",
+      "label": "Password",
+      "type": "password",
+      "required": true,
+      "placeholder": "Min. 8 characters"
+    },
+    {
+      "key": "age",
+      "label": "Age",
+      "type": "number",
+      "placeholder": "e.g. 29",
+      "value": 29
+    },
+    {
+      "key": "start_date",
+      "label": "Start date",
+      "type": "date",
+      "value": "2025-09-01"
+    },
+    {
+      "key": "website",
+      "label": "Personal site",
+      "type": "url",
+      "placeholder": "https://example.com",
+      "value": "https://example.com"
+    },
+    {
+      "key": "phone",
+      "label": "Phone",
+      "type": "tel",
+      "placeholder": "+49 170 0000000"
+    },
+    {
+      "key": "favorite_color",
+      "label": "Pick a color",
+      "type": "color",
+      "value": "#8b5cf6"
+    },
+    {
+      "key": "focus_level",
+      "label": "Focus (0–100)",
+      "type": "range",
+      "value": 70
+    },
+    {
+      "key": "bio",
+      "label": "Short bio",
+      "type": "textarea",
+      "placeholder": "Two sentences about you",
+      "value": "First programmer. Loves analytics & poetry."
+    },
+    {
+      "key": "role",
+      "label": "Role",
+      "type": "select",
+      "required": true,
+      "options": ["Student", "Engineer", "Researcher", "Manager", "Founder"],
+      "value": "Engineer"
+    },
+    {
+      "key": "experience",
+      "label": "Experience level",
+      "type": "radio",
+      "required": true,
+      "options": ["Beginner", "Intermediate", "Advanced"],
+      "value": "Intermediate"
+    },
+    {
+      "key": "newsletter",
+      "label": "Subscribe to newsletter",
+      "type": "checkbox",
+      "value": true
+    },
+    {
+      "key": "terms",
+      "label": "I agree to the Terms",
+      "type": "checkbox",
+      "required": true,
+      "value": false
+    }
   ]
 };
 
