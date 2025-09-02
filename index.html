@@ -25,6 +25,8 @@
   <button id="format">Format</button>
   <button id="reset">Reset</button>
   <button id="copy">Copy JSON</button>
+  <button id="share">Share Link</button>
+  <button id="export">Export HTML</button>
   <span class="hint">Edit JSON → Apply. Autosaves to localStorage.</span>
 </header>
 
@@ -168,6 +170,56 @@ function resetSpec() {
   render();
 }
 function copySpec() { navigator.clipboard.writeText($("#dsl").value); }
+
+// --- URL-safe Base64 for Unicode ---
+function b64uEncode(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = ""; bytes.forEach(b=>bin+=String.fromCharCode(b));
+  return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function b64uDecode(s){
+  s = s.replace(/-/g,"+").replace(/_/g,"/"); s += "===".slice((s.length+3)%4);
+  const bin = atob(s); const bytes = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+// --- Hash IO ---
+function writeHashFromEditor(){
+  try{
+    const pretty = JSON.stringify(JSON.parse($("#dsl").value)); // stable min form
+    const enc = b64uEncode(pretty);
+    location.hash = "f=" + enc;
+    navigator.clipboard.writeText(location.href);
+    alert("Shareable link copied to clipboard.");
+  }catch(e){ alert("Invalid JSON: "+e.message); }
+}
+function readHashToEditor(){
+  if (!location.hash.startsWith("#f=")) return false;
+  try{
+    const enc = location.hash.slice(3);
+    const json = b64uDecode(enc);
+    JSON.parse(json); // validate
+    $("#dsl").value = JSON.stringify(JSON.parse(json), null, 2);
+    saveSpec(); render();
+    return true;
+  }catch{ console.warn("Bad hash payload."); }
+  return false;
+}
+
+// --- Export current page as a single HTML file with embedded DSL ---
+function exportHTML(){
+  // Clone current HTML and inject a script that seeds localStorage with the current DSL on first load.
+  const currentDSL = (()=>{ try{return JSON.stringify(JSON.parse($("#dsl").value));}catch{ return JSON.stringify(DEFAULT_SPEC);} })();
+  const seedScript = `<script>(function(){try{
+    var k='${LS_KEY}'; if(!localStorage.getItem(k)){ localStorage.setItem(k, ${JSON.stringify(currentDSL)}); }
+  }catch(e){}})();<\/script>`;
+  const html = '<!DOCTYPE html>'+document.documentElement.outerHTML.replace('</body>', seedScript+'</body>');
+  const blob = new Blob([html], {type:'text/html'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'form-builder.html';
+  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 600);
+}
+
 
 /* ---------- Render ---------- */
 function el(tag, props={}, ...kids){
@@ -329,6 +381,10 @@ $("#format").onclick = formatSpec;
 $("#reset").onclick = resetSpec;
 $("#copy").onclick = copySpec;
 $("#dsl").addEventListener("input", saveSpec);
+$("#share").onclick = writeHashFromEditor;
+$("#export").onclick = exportHTML;
+window.addEventListener("hashchange", readHashToEditor);
 loadSpec();
+readHashToEditor(); // attempt on first load
 render();
 </script>
