@@ -4,6 +4,13 @@
 <style>
   :root { --b:#d9d9e3; --t:#222; --mut:#666; }
   *{box-sizing:border-box}
+
+  /* render-only if URL has #f=... */
+  body.render-only header, 
+  body.render-only textarea { display:none }
+  body.render-only main { padding:.75rem; height:auto }
+  body.render-only #out { flex:1; width:100% }
+
   body{margin:0;font:14px system-ui,Segoe UI,Roboto,Arial;color:var(--t)}
   header{display:flex;gap:.5rem;align-items:center;padding:.5rem .75rem;border-bottom:1px solid var(--b)}
   header button{padding:.35rem .6rem;border:1px solid var(--b);background:#fff;border-radius:6px;cursor:pointer}
@@ -206,6 +213,11 @@ function readHashToEditor(){
   }catch{ console.warn("Bad hash payload."); }
   return false;
 }
+function setRenderModeFromHash(){
+  const renderOnly = location.hash.startsWith("#f=");
+  document.body.classList.toggle("render-only", renderOnly);
+}
+
 
 // --- Export current page as a single HTML file with embedded DSL ---
 function exportHTML(){
@@ -383,8 +395,9 @@ $("#copy").onclick = copySpec;
 $("#dsl").addEventListener("input", saveSpec);
 $("#share").onclick = writeHashFromEditor;
 $("#export").onclick = exportHTML;
-window.addEventListener("hashchange", readHashToEditor);
+window.addEventListener("hashchange", ()=>{ readHashToEditor(); setRenderModeFromHash(); });
 loadSpec();
-readHashToEditor(); // attempt on first load
+readHashToEditor();
+setRenderModeFromHash();
 render();
 </script>
