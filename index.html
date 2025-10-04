@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
-<title>Mini Form Builder (Readable)</title>
+<title>Mini Form Builder (Readable + showIf/array/compute)</title>
 <style>
   :root { --b:#d9d9e3; --t:#222; --mut:#666; }
   *{box-sizing:border-box}
@@ -23,8 +23,13 @@
   label{display:block;margin:0 0 .2rem}
   .mut{color:var(--mut);font-size:12px}
   .box{border:1px dashed var(--b);border-radius:8px;padding:.6rem;margin:.75rem 0}
+  .soft{border:1px solid #eee;border-radius:8px;padding:.6rem;margin:.5rem 0;background:#fafafa}
   pre{margin:.35rem 0;background:#fafafa;border:1px solid #eee;border-radius:8px;padding:.6rem;white-space:pre-wrap}
   .netok{color:#0a7a0a}.neterr{color:#b00020}
+  .inline{display:inline;margin-left:.35rem}
+  .right{float:right}
+  .btn{padding:.25rem .5rem;border:1px solid var(--b);border-radius:6px;background:#fff;cursor:pointer}
+  .mini{font-size:12px;padding:.15rem .4rem}
 </style>
 
 <header>
@@ -44,128 +49,50 @@
 
 <script>
 /* ---------- Storage & Defaults ---------- */
-const LS_KEY = "mini_form_builder_readable_v1";
+const LS_KEY = "mini_form_builder_readable_v2";
 const $ = s => document.querySelector(s);
 
 const DEFAULT_SPEC = {
-  "title": "All-Features Demo Form",
-  "description": "This JSON showcases every supported option/type. Edit freely and hit Apply.",
+  "title": "Onboarding + Repeaters Demo",
+  "description": "Shows showIf, array repeaters, and computed pricing.",
   "send": {
     "url": "https://httpbin.org/post",
     "method": "POST",
-    "headers": {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer DEMO_TOKEN_123",
-      "X-Form-Id": "all-features-demo"
-    }
+    "headers": { "Content-Type": "application/json" }
   },
   "fields": [
+    { "key":"company_name", "label":"Company Name", "type":"text", "required":true, "placeholder":"ACME GmbH" },
+    { "key":"website", "label":"Website", "type":"url", "placeholder":"https://example.com" },
+    { "key":"is_vat_registered", "label":"VAT Registered?", "type":"radio", "options":["Yes","No"], "value":"No", "required":true },
+    { "key":"vat_id", "label":"VAT ID", "type":"text", "placeholder":"DE...", "showIf":{"key":"is_vat_registered","op":"=","value":"Yes"} },
+
     {
-      "key": "full_name",
-      "label": "Full name",
-      "type": "text",
-      "required": true,
-      "placeholder": "Ada Lovelace",
-      "value": "Ada Lovelace"
+      "key":"contacts", "label":"Contacts", "type":"array",
+      "value":[{ "name":"Jane Doe", "role":"Billing", "email":"jane@example.com", "phone":"+49 170 0000000" }],
+      "of":{
+        "fields":[
+          { "key":"name","label":"Name","type":"text","required":true },
+          { "key":"role","label":"Role","type":"text" },
+          { "key":"email","label":"Email","type":"email","required":true },
+          { "key":"phone","label":"Phone","type":"tel" }
+        ]
+      }
     },
-    {
-      "key": "email",
-      "label": "Email",
-      "type": "email",
-      "required": true,
-      "placeholder": "you@example.com"
-    },
-    {
-      "key": "password",
-      "label": "Password",
-      "type": "password",
-      "required": true,
-      "placeholder": "Min. 8 characters"
-    },
-    {
-      "key": "age",
-      "label": "Age",
-      "type": "number",
-      "placeholder": "e.g. 29",
-      "value": 29
-    },
-    {
-      "key": "start_date",
-      "label": "Start date",
-      "type": "date",
-      "value": "2025-09-01"
-    },
-    {
-      "key": "website",
-      "label": "Personal site",
-      "type": "url",
-      "placeholder": "https://example.com",
-      "value": "https://example.com"
-    },
-    {
-      "key": "phone",
-      "label": "Phone",
-      "type": "tel",
-      "placeholder": "+49 170 0000000"
-    },
-    {
-      "key": "favorite_color",
-      "label": "Pick a color",
-      "type": "color",
-      "value": "#8b5cf6"
-    },
-    {
-      "key": "focus_level",
-      "label": "Focus (0–100)",
-      "type": "range",
-      "value": 70
-    },
-    {
-      "key": "bio",
-      "label": "Short bio",
-      "type": "textarea",
-      "placeholder": "Two sentences about you",
-      "value": "First programmer. Loves analytics & poetry."
-    },
-    {
-      "key": "role",
-      "label": "Role",
-      "type": "select",
-      "required": true,
-      "options": ["Student", "Engineer", "Researcher", "Manager", "Founder"],
-      "value": "Engineer"
-    },
-    {
-      "key": "experience",
-      "label": "Experience level",
-      "type": "radio",
-      "required": true,
-      "options": ["Beginner", "Intermediate", "Advanced"],
-      "value": "Intermediate"
-    },
-    {
-      "key": "newsletter",
-      "label": "Subscribe to newsletter",
-      "type": "checkbox",
-      "value": true
-    },
-    {
-      "key": "terms",
-      "label": "I agree to the Terms",
-      "type": "checkbox",
-      "required": true,
-      "value": false
-    }
+
+    { "key":"seats","label":"Seats","type":"number","value":5,"required":true },
+    { "key":"rate","label":"Rate (€/seat)","type":"number","value":29,"required":true },
+    { "key":"price","label":"Monthly Price (€)","type":"text","compute":"seats * rate" },
+
+    { "key":"tos","label":"I agree to Terms","type":"checkbox","required":true }
   ]
 };
 
+/* ---------- Persistence / editor ---------- */
 function loadSpec() {
   const raw = localStorage.getItem(LS_KEY);
   $("#dsl").value = raw ? raw : JSON.stringify(DEFAULT_SPEC, null, 2);
 }
-function saveSpec() {
-  localStorage.setItem(LS_KEY, $("#dsl").value);
-}
+function saveSpec() { localStorage.setItem(LS_KEY, $("#dsl").value); }
 function formatSpec() {
   try { $("#dsl").value = JSON.stringify(JSON.parse($("#dsl").value), null, 2); saveSpec(); }
   catch (e) { alert("Invalid JSON: " + e.message); }
@@ -173,28 +100,27 @@ function formatSpec() {
 function resetSpec() {
   if (!confirm("Reset to default?")) return;
   $("#dsl").value = JSON.stringify(DEFAULT_SPEC, null, 2);
-  saveSpec();
-  render();
+  saveSpec(); render();
 }
 function copySpec() { navigator.clipboard.writeText($("#dsl").value); }
 
-// --- URL-safe Base64 for Unicode ---
+/* ---------- URL-safe Base64 (Unicode) ---------- */
 function b64uEncode(str){
   const bytes = new TextEncoder().encode(str);
-  let bin = ""; bytes.forEach(b=>bin+=String.fromCharCode(b));
+  let bin=""; bytes.forEach(b=>bin+=String.fromCharCode(b));
   return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 }
 function b64uDecode(s){
-  s = s.replace(/-/g,"+").replace(/_/g,"/"); s += "===".slice((s.length+3)%4);
-  const bin = atob(s); const bytes = new Uint8Array(bin.length);
-  for (let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  s=s.replace(/-/g,"+").replace(/_/g,"/"); s+="===".slice((s.length+3)%4);
+  const bin=atob(s), bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
   return new TextDecoder().decode(bytes);
 }
 
-// --- Hash IO ---
+/* ---------- Hash IO + modes ---------- */
 function writeHashFromEditor(){
   try{
-    const pretty = JSON.stringify(JSON.parse($("#dsl").value)); // stable min form
+    const pretty = JSON.stringify(JSON.parse($("#dsl").value));
     const enc = b64uEncode(pretty);
     location.hash = "f=" + enc;
     navigator.clipboard.writeText(location.href);
@@ -206,7 +132,7 @@ function readHashToEditor(){
   try{
     const enc = location.hash.slice(3);
     const json = b64uDecode(enc);
-    JSON.parse(json); // validate
+    JSON.parse(json);
     $("#dsl").value = JSON.stringify(JSON.parse(json), null, 2);
     saveSpec(); render();
     return true;
@@ -218,27 +144,13 @@ function setRenderModeFromHash(){
   document.body.classList.toggle("render-only", renderOnly);
 }
 
-
-// --- Export current page as a single HTML file with embedded DSL ---
-function exportHTML(){
-  // Clone current HTML and inject a script that seeds localStorage with the current DSL on first load.
-  const currentDSL = (()=>{ try{return JSON.stringify(JSON.parse($("#dsl").value));}catch{ return JSON.stringify(DEFAULT_SPEC);} })();
-  const seedScript = `<script>(function(){try{
-    var k='${LS_KEY}'; if(!localStorage.getItem(k)){ localStorage.setItem(k, ${JSON.stringify(currentDSL)}); }
-  }catch(e){}})();<\/script>`;
-  const html = '<!DOCTYPE html>'+document.documentElement.outerHTML.replace('</body>', seedScript+'</body>');
-  const blob = new Blob([html], {type:'text/html'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'form-builder.html';
-  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 600);
-}
-
-
-/* ---------- Render ---------- */
+/* ---------- Tiny utils ---------- */
 function el(tag, props={}, ...kids){
   const node = document.createElement(tag);
   Object.entries(props).forEach(([k,v])=>{
     if (k === "class") node.className = v;
     else if (k === "for") node.htmlFor = v;
+    else if (k === "style") node.style.cssText = v;
     else if (k in node) node[k] = v;
     else node.setAttribute(k, v);
   });
@@ -246,67 +158,219 @@ function el(tag, props={}, ...kids){
   return node;
 }
 
-function parseSpec() {
-  try { return [JSON.parse($("#dsl").value), null]; }
-  catch (e) { return [null, e]; }
+/* ---------- Conditional logic ---------- */
+function evalCond(cond, values){
+  if (!cond) return true;
+  const a = values[cond.key];
+  const b = cond.value;
+  switch (cond.op) {
+    case "=":  return a == b;
+    case "!=": return a != b;
+    case ">":  return (+a) > (+b);
+    case ">=": return (+a) >= (+b);
+    case "<":  return (+a) < (+b);
+    case "<=": return (+a) <= (+b);
+    case "includes": return Array.isArray(a) ? a.includes(b) : (a||"").includes?.(b);
+    default: return !!a; // fallback: truthy
+  }
 }
 
-function buildField(form, f) {
+/* ---------- Compute ---------- */
+function safeNumber(x){ const n=+x; return isFinite(n)?n:0; }
+function evalCompute(expr, values){
+  // allow identifiers, numbers, + - * / ( ) . and spaces
+  // replace identifiers with numeric values
+  const replaced = expr.replace(/[A-Za-z_][A-Za-z0-9_]*/g, m => String(safeNumber(values[m])));
+  try { return String(Function("return ("+replaced+")")()); } catch { return ""; }
+}
+
+/* ---------- Builders ---------- */
+function buildSimpleField(id, name, f, preset){
   const row = el("div", {class:"row"});
-  const key = f.key;
-  const labelText = f.label || key;
-  if (labelText && f.type !== "radio") row.appendChild(el("label", {"for": key}, labelText + (f.required ? " *" : "")));
+  const labelText = f.label || f.key;
+  if (f.type !== "checkbox" && f.type !== "radio" && labelText) {
+    row.appendChild(el("label", {"for":id}, labelText + (f.required ? " *" : "")));
+  }
 
   let fieldEl;
 
   if (f.type === "textarea") {
-    fieldEl = el("textarea", {id:key, name:key, placeholder:f.placeholder||"", required:!!f.required});
-    if (f.value != null) fieldEl.value = f.value;
+    fieldEl = el("textarea", {id, name, placeholder:f.placeholder||"", required:!!f.required});
+    if (preset != null) fieldEl.value = preset;
 
   } else if (f.type === "select") {
-    fieldEl = el("select", {id:key, name:key, required:!!f.required});
+    fieldEl = el("select", {id, name, required:!!f.required});
     (f.options||[]).forEach(opt=>{
       const o = el("option", {value:String(opt)}, String(opt));
-      if (f.value === opt) o.selected = true;
+      if (preset === opt) o.selected = true;
       fieldEl.appendChild(o);
     });
 
   } else if (f.type === "radio") {
-    // radios are a set; give them the same name
     fieldEl = el("div");
     if (labelText) row.appendChild(el("label", {}, labelText + (f.required ? " *" : "")));
     (f.options||[]).forEach((opt, idx)=>{
-      const id = key + "_" + String(opt).replace(/\W+/g,"_");
-      const r = el("input", {type:"radio", id, name:key, value:String(opt)});
-      if (f.value === opt) r.checked = true;
-      if (f.required && idx === 0) r.required = true; // HTML requires on one is enough
-      const lab = el("label", {"for":id, class:"", style:"display:inline-block;margin-right:.75rem;vertical-align:middle"}, String(opt));
+      const rid = id + "_" + String(opt).replace(/\W+/g,"_");
+      const r = el("input", {type:"radio", id:rid, name, value:String(opt)});
+      if (preset === opt) r.checked = true;
+      if (f.required && idx===0) r.required = true;
+      const lab = el("label", {"for":rid, class:"", style:"display:inline-block;margin-right:.75rem;vertical-align:middle"}, String(opt));
       fieldEl.appendChild(r); fieldEl.appendChild(lab);
     });
 
   } else if (f.type === "checkbox") {
-    fieldEl = el("input", {type:"checkbox", id:key, name:key});
-    if (f.value) fieldEl.checked = true;
-    // show label inline for checkbox
-    const inline = el("label", {"for":key, style:"display:inline;margin-left:.35rem"}, labelText + (f.required ? " *" : ""));
+    fieldEl = el("input", {type:"checkbox", id, name});
+    if (preset) fieldEl.checked = true;
+    const inline = el("label", {"for":id, class:"inline"}, labelText + (f.required ? " *" : ""));
     row.appendChild(fieldEl); row.appendChild(inline);
     return row;
 
+  } else if (f.compute) {
+    fieldEl = el("input", {type:"text", id, name, readOnly:true});
+    // value computed later
   } else {
-    // default to input type (text/email/number/date/password/…)
-    fieldEl = el("input", {type:f.type||"text", id:key, name:key, placeholder:f.placeholder||"", required:!!f.required});
-    if (f.value != null) fieldEl.value = f.value;
+    fieldEl = el("input", {type:f.type||"text", id, name, placeholder:f.placeholder||"", required:!!f.required});
+    if (preset != null) fieldEl.value = preset;
   }
 
   row.appendChild(fieldEl);
   return row;
 }
 
-function collectData(form, fields) {
-  const data = {};
-  (fields||[]).forEach(f=>{
+function buildArrayField(form, f){
+  const row = el("div", {class:"row"});
+  row.appendChild(el("label", {}, (f.label || f.key) + (f.required ? " *" : "")));
+  const cont = el("div", {class:"soft", "data-arr": f.key});
+  row.appendChild(cont);
+
+  const items = Array.isArray(f.value) ? JSON.parse(JSON.stringify(f.value)) : [{}];
+
+  function renderItems(){
+    cont.innerHTML = "";
+    items.forEach((itm, idx)=>{
+      const gi = el("div", {class:"soft", "data-idx": idx});
+      (f.of?.fields||[]).forEach(sf=>{
+        const sid = `${f.key}__${idx}__${sf.key}`;
+        const sname = sid;
+        const preset = itm[sf.key];
+        gi.appendChild(buildSimpleField(sid, sname, sf, preset));
+      });
+      const rm = el("button", {type:"button", class:"btn mini right", onclick:()=>{ items.splice(idx,1); renderItems(); }}, "Remove");
+      gi.appendChild(rm);
+      cont.appendChild(gi);
+    });
+    const add = el("button", {type:"button", class:"btn mini", onclick:()=>{ items.push({}); renderItems(); }}, "+ Add contact");
+    cont.appendChild(add);
+  }
+  renderItems();
+
+  // expose collector for submit/read cycle
+  row._collectArray = () => {
+    const arr=[];
+    cont.querySelectorAll('[data-idx]').forEach((gi,i)=>{
+      const obj={};
+      (f.of?.fields||[]).forEach(sf=>{
+        const id = `${f.key}__${i}__${sf.key}`;
+        if (sf.type==="radio") {
+          const ch = gi.querySelector(`input[name="${id}"]:checked`);
+          obj[sf.key] = ch?ch.value:null;
+        } else if (sf.type==="checkbox") {
+          const elx = gi.querySelector(`#${CSS.escape(id)}`);
+          obj[sf.key] = !!(elx && elx.checked);
+        } else {
+          const elx = gi.querySelector(`#${CSS.escape(id)}`);
+          obj[sf.key] = elx?elx.value:null;
+        }
+      });
+      arr.push(obj);
+    });
+    return arr;
+  };
+
+  return row;
+}
+
+/* ---------- Render one field ---------- */
+function buildField(form, f, trackers){
+  const key = f.key;
+  const id = key;
+  const name = key;
+
+  let row;
+  if (f.type === "array") {
+    row = buildArrayField(form, f);
+  } else {
+    row = buildSimpleField(id, name, f, f.value);
+  }
+
+  // track showIf + compute
+  if (f.showIf) trackers.conds.push({el: row, cond: f.showIf, required: !!f.required});
+  if (f.compute) {
+    const inputEl = row.querySelector("#"+CSS.escape(id));
+    trackers.computes.push({el: inputEl, expr: f.compute});
+  }
+
+  // mark row for later type/keys (used on submit)
+  row.dataset.fieldKey = key;
+  row.dataset.fieldType = f.type || (f.compute ? "compute" : "text");
+  return row;
+}
+
+/* ---------- Read current flat values (top-level only) ---------- */
+function readFlatValues(spec, form){
+  const values = {};
+  (spec.fields||[]).forEach(f=>{
+    if (f.type === "array") return; // not part of flat compute/cond by default
     if (f.type === "radio") {
-      const checked = form.querySelector(`input[name="${f.key}"]:checked`);
+      const checked = form.querySelector(`input[name="${CSS.escape(f.key)}"]:checked`);
+      values[f.key] = checked ? checked.value : null;
+    } else if (f.type === "checkbox") {
+      const i = form.querySelector(`#${CSS.escape(f.key)}`);
+      values[f.key] = !!(i && i.checked);
+    } else {
+      const i = form.querySelector(`#${CSS.escape(f.key)}`);
+      values[f.key] = i ? i.value : null;
+    }
+  });
+  return values;
+}
+
+/* ---------- Visibility + compute updater ---------- */
+function updateVisibilityAndCompute(spec, form, trackers){
+  const values = readFlatValues(spec, form);
+
+  // apply showIf
+  trackers.conds.forEach(c=>{
+    const show = evalCond(c.cond, values);
+    c.el.style.display = show ? "" : "none";
+    // disable/enable nested controls so HTML5 required won't block
+    c.el.querySelectorAll("input,select,textarea").forEach(n=>{ n.disabled = !show; if(!show) n.required=false; });
+  });
+
+  // computes
+  trackers.computes.forEach(co=>{
+    const v = evalCompute(co.expr, values);
+    if (co.el) co.el.value = v;
+  });
+}
+
+/* ---------- Collect data (respects visibility) ---------- */
+function collectData(spec, form){
+  const data = {};
+  (spec.fields||[]).forEach(f=>{
+    const row = form.querySelector(`[data-field-key="${CSS.escape(f.key)}"]`);
+    const visible = !row || row.style.display !== "none";
+
+    if (f.type === "array") {
+      if (!visible) return;
+      if (row._collectArray) data[f.key] = row._collectArray();
+      return;
+    }
+
+    if (!visible) return;
+
+    if (f.type === "radio") {
+      const checked = form.querySelector(`input[name="${CSS.escape(f.key)}"]:checked`);
       data[f.key] = checked ? checked.value : null;
     } else if (f.type === "checkbox") {
       const i = form.querySelector(`#${CSS.escape(f.key)}`);
@@ -319,6 +383,7 @@ function collectData(form, fields) {
   return data;
 }
 
+/* ---------- Networking ---------- */
 async function maybeSend(spec, payload, ui) {
   const cfg = spec.send || {};
   const url = (cfg.url||"").trim();
@@ -340,27 +405,40 @@ async function maybeSend(spec, payload, ui) {
   }
 }
 
+/* ---------- Render ---------- */
+function parseSpec() {
+  try { return [JSON.parse($("#dsl").value), null]; }
+  catch (e) { return [null, e]; }
+}
+
 function render(){
   saveSpec();
 
   const [spec, err] = parseSpec();
   if (err) { $("#out").innerHTML = "<b>JSON error:</b> " + err.message; return; }
 
-  // container
   const root = el("div");
 
-  // title/desc
   root.appendChild(el("h2", {}, spec.title || "Form"));
   if (spec.description) root.appendChild(el("div", {class:"mut"}, spec.description));
 
-  // form
   const form = el("form", {action:"#", method:"POST"});
-  (spec.fields||[]).forEach(f => form.appendChild(buildField(form, f)));
+  const trackers = {conds:[], computes:[]};
+
+  (spec.fields||[]).forEach(f=>{
+    const row = buildField(form, f, trackers);
+    form.appendChild(row);
+  });
+
+  // live updates (visibility + compute)
+  form.addEventListener("input", ()=>updateVisibilityAndCompute(spec, form, trackers));
+  form.addEventListener("change", ()=>updateVisibilityAndCompute(spec, form, trackers));
+  setTimeout(()=>updateVisibilityAndCompute(spec, form, trackers)); // after DOM attach
 
   // submit
   form.appendChild(el("button", {type:"submit"}, "Submit"));
 
-  // output panels
+  // output
   const box = el("div", {class:"box"});
   const outHead = el("div", {}, el("b", {}, "Submission Preview "), el("span",{class:"mut"},"(no navigation)"));
   const outPre = el("pre", {}, "—");
@@ -374,7 +452,7 @@ function render(){
 
   form.addEventListener("submit", async (e)=>{
     e.preventDefault();
-    const values = collectData(form, spec.fields||[]);
+    const values = collectData(spec, form);
     const payload = { data: values, meta: { formTitle: spec.title||"", timestamp: new Date().toISOString() } };
     outPre.textContent = JSON.stringify(payload, null, 2);
     await maybeSend(spec, payload, {net, resp});
@@ -387,6 +465,18 @@ function render(){
   $("#out").appendChild(root);
 }
 
+/* ---------- Export (kept; you can ignore) ---------- */
+function exportHTML(){
+  const currentDSL = (()=>{ try{return JSON.stringify(JSON.parse($("#dsl").value));}catch{ return JSON.stringify(DEFAULT_SPEC);} })();
+  const seedScript = `<script>(function(){try{
+    var k='${LS_KEY}'; if(!localStorage.getItem(k)){ localStorage.setItem(k, ${JSON.stringify(currentDSL)}); }
+  }catch(e){}})();<\/script>`;
+  const html = '<!DOCTYPE html>'+document.documentElement.outerHTML.replace('</body>', seedScript+'</body>');
+  const blob = new Blob([html], {type:'text/html'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'form-builder.html';
+  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 600);
+}
+
 /* ---------- Wire up ---------- */
 $("#apply").onclick = render;
 $("#format").onclick = formatSpec;
@@ -396,6 +486,7 @@ $("#dsl").addEventListener("input", saveSpec);
 $("#share").onclick = writeHashFromEditor;
 $("#export").onclick = exportHTML;
 window.addEventListener("hashchange", ()=>{ readHashToEditor(); setRenderModeFromHash(); });
+
 loadSpec();
 readHashToEditor();
 setRenderModeFromHash();
