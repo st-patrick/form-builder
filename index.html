@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
-<title>Mini Form Builder (Readable + showIf/array/compute)</title>
+<title>Form Engine — sections, array, showIf, compute, lookup</title>
 <style>
   :root { --b:#d9d9e3; --t:#222; --mut:#666; }
   *{box-sizing:border-box}
@@ -19,6 +19,7 @@
   textarea{flex:1;resize:none;border:1px solid var(--b);border-radius:8px;padding:.6rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
   #out{flex:1;border:1px solid var(--b);border-radius:8px;padding:.9rem;overflow:auto}
   h2{margin:.25rem 0 .5rem}
+  h3{margin:.9rem 0 .35rem;font-size:1rem}
   .row{margin:.5rem 0}
   label{display:block;margin:0 0 .2rem}
   .mut{color:var(--mut);font-size:12px}
@@ -49,41 +50,83 @@
 
 <script>
 /* ---------- Storage & Defaults ---------- */
-const LS_KEY = "mini_form_builder_readable_v2";
+const LS_KEY = "form_engine_v3";
 const $ = s => document.querySelector(s);
 
+/*
+ DEMO: Bank-client admin flavored JSON
+ - sections (CRM-ish)
+ - showIf
+ - array (repeaters)
+ - compute
+ - lookup (autocomplete with fetch)
+*/
 const DEFAULT_SPEC = {
-  "title": "Onboarding + Repeaters Demo",
-  "description": "Shows showIf, array repeaters, and computed pricing.",
+  "title": "Bank Client Admin — Demo",
+  "description": "Sections, repeaters, showIf, compute, and a live lookup. Ready for high-design Runner or internal Admin.",
   "send": {
     "url": "https://httpbin.org/post",
     "method": "POST",
     "headers": { "Content-Type": "application/json" }
   },
-  "fields": [
-    { "key":"company_name", "label":"Company Name", "type":"text", "required":true, "placeholder":"ACME GmbH" },
-    { "key":"website", "label":"Website", "type":"url", "placeholder":"https://example.com" },
-    { "key":"is_vat_registered", "label":"VAT Registered?", "type":"radio", "options":["Yes","No"], "value":"No", "required":true },
-    { "key":"vat_id", "label":"VAT ID", "type":"text", "placeholder":"DE...", "showIf":{"key":"is_vat_registered","op":"=","value":"Yes"} },
-
+  "sections": [
     {
-      "key":"contacts", "label":"Contacts", "type":"array",
-      "value":[{ "name":"Jane Doe", "role":"Billing", "email":"jane@example.com", "phone":"+49 170 0000000" }],
-      "of":{
-        "fields":[
-          { "key":"name","label":"Name","type":"text","required":true },
-          { "key":"role","label":"Role","type":"text" },
-          { "key":"email","label":"Email","type":"email","required":true },
-          { "key":"phone","label":"Phone","type":"tel" }
-        ]
-      }
+      "title": "Identity",
+      "fields": [
+        { "key":"client_type","label":"Client Type","type":"radio","options":["Person","Company"],"value":"Person","required":true },
+        { "key":"first_name","label":"First name","type":"text","showIf":{"key":"client_type","op":"=","value":"Person"},"required":true },
+        { "key":"last_name","label":"Last name","type":"text","showIf":{"key":"client_type","op":"=","value":"Person"},"required":true },
+        { "key":"company_name","label":"Company name","type":"text","showIf":{"key":"client_type","op":"=","value":"Company"} },
+        { "key":"email","label":"Email","type":"email","placeholder":"client@example.com" },
+        { "key":"phone","label":"Phone","type":"tel","placeholder":"+49 ..." }
+      ]
     },
-
-    { "key":"seats","label":"Seats","type":"number","value":5,"required":true },
-    { "key":"rate","label":"Rate (€/seat)","type":"number","value":29,"required":true },
-    { "key":"price","label":"Monthly Price (€)","type":"text","compute":"seats * rate" },
-
-    { "key":"tos","label":"I agree to Terms","type":"checkbox","required":true }
+    {
+      "title": "Addresses",
+      "fields": [
+        {
+          "key":"addresses","label":"Addresses","type":"array",
+          "value":[{ "type":"Home","street":"Musterstraße 1","zip":"10115","city":"Berlin","country":"DE" }],
+          "of":{"fields":[
+            { "key":"type","label":"Type","type":"select","options":["Home","Billing","Business"],"value":"Home" },
+            { "key":"street","label":"Street","type":"text","required":true },
+            { "key":"zip","label":"ZIP","type":"text","placeholder":"e.g. 10115" },
+            { "key":"city","label":"City","type":"text" },
+            { "key":"country","label":"Country","type":"text","value":"DE" }
+          ]}
+        }
+      ]
+    },
+    {
+      "title": "Products",
+      "fields": [
+        { "key":"seats","label":"Seat count","type":"number","value":3,"required":true, "min":1 },
+        { "key":"rate","label":"Monthly rate (€ / seat)","type":"number","value":29,"required":true, "min":0 },
+        { "key":"discount_pct","label":"Discount (%)","type":"number","value":0 },
+        { "key":"gross","label":"Gross (€/mo)","type":"text","compute":"seats * rate" },
+        { "key":"net","label":"Net after discount (€/mo)","type":"text","compute":"(seats * rate) * (1 - discount_pct/100)" }
+      ]
+    },
+    {
+      "title": "KYC",
+      "fields": [
+        { "key":"is_vat_registered","label":"VAT registered?","type":"radio","options":["Yes","No"],"value":"No" },
+        { "key":"vat_id","label":"VAT ID","type":"text","placeholder":"DE...","showIf":{"key":"is_vat_registered","op":"=","value":"Yes"} },
+        {
+          "key":"branch","label":"Assign Branch","type":"lookup",
+          "placeholder":"Type to search branches…",
+          "fetchOptions": {
+            "url":"https://jsonplaceholder.typicode.com/users",
+            "q":"q",          
+            "labelKey":"name",            /* what user sees */
+            "valueKey":"id",              /* what we store */
+            "minChars": 2,
+            "debounceMs": 200
+          }
+        },
+        { "key":"tos","label":"I confirm data is accurate","type":"checkbox","required":true }
+      ]
+    }
   ]
 };
 
@@ -151,11 +194,24 @@ function el(tag, props={}, ...kids){
     if (k === "class") node.className = v;
     else if (k === "for") node.htmlFor = v;
     else if (k === "style") node.style.cssText = v;
+    else if (k === "list") node.setAttribute("list", v);      // <-- fix: force attribute
     else if (k in node) node[k] = v;
     else node.setAttribute(k, v);
   });
   kids.forEach(k => node.appendChild(typeof k === "string" ? document.createTextNode(k) : k));
   return node;
+}
+const isArr = Array.isArray;
+
+/* ---------- Field iteration across sections or flat ---------- */
+function eachField(spec, fn){
+  if (isArr(spec.fields)) { spec.fields.forEach(fn); return; }
+  if (isArr(spec.sections)) { spec.sections.forEach(sec => (sec.fields||[]).forEach(fn)); }
+}
+function fieldList(spec){
+  if (isArr(spec.fields)) return spec.fields;
+  if (isArr(spec.sections)) return spec.sections.flatMap(s=>s.fields||[]);
+  return [];
 }
 
 /* ---------- Conditional logic ---------- */
@@ -171,23 +227,93 @@ function evalCond(cond, values){
     case "<":  return (+a) < (+b);
     case "<=": return (+a) <= (+b);
     case "includes": return Array.isArray(a) ? a.includes(b) : (a||"").includes?.(b);
-    default: return !!a; // fallback: truthy
+    default: return !!a;
   }
 }
 
 /* ---------- Compute ---------- */
 function safeNumber(x){ const n=+x; return isFinite(n)?n:0; }
 function evalCompute(expr, values){
-  // allow identifiers, numbers, + - * / ( ) . and spaces
-  // replace identifiers with numeric values
+  // replace identifiers with numeric values; allow + - * / ( ) . and spaces
   const replaced = expr.replace(/[A-Za-z_][A-Za-z0-9_]*/g, m => String(safeNumber(values[m])));
   try { return String(Function("return ("+replaced+")")()); } catch { return ""; }
 }
 
-/* ---------- Builders ---------- */
+/* ---------- Lookup (datalist + fetch) ---------- */
+function buildLookup(id, name, f, preset){
+  const row = el("div",{class:"row"});
+  row.appendChild(el("label",{"for":id}, (f.label||f.key) + (f.required?" *":"")));
+
+  const listId = id+"_list";
+  const text = el("input",{type:"text", id, list:listId, placeholder:f.placeholder||"", required:!!f.required});
+  const hidden = el("input",{type:"hidden", id:id+"_value", name:name});
+  const list = el("datalist",{id:listId});
+  row.appendChild(text); row.appendChild(list); row.appendChild(hidden);
+
+  if (preset!=null) hidden.value = preset;
+
+  const fo = f.fetchOptions||{};
+  const url = fo.url||"";
+  const qParam = fo.q || "q";
+  const labelKey = fo.labelKey || "label";
+  const valueKey = fo.valueKey || "value";
+  const minChars = fo.minChars ?? 2;
+  const debounceMs = fo.debounceMs ?? 200;
+
+  let timer = null;
+  let cache = new Map(); // label -> value
+
+  async function doFetch(q){
+    if (!url) return;
+    try{
+      const u = new URL(url, location.origin);
+      u.searchParams.set(qParam, q);
+      const res = await fetch(u.toString());
+      const data = await res.json();
+      list.innerHTML = "";
+      cache.clear();
+      (data||[]).forEach(item=>{
+        const lbl = String(item[labelKey]);
+        const val = item[valueKey];
+        cache.set(lbl, val);
+        list.appendChild(el("option",{value:lbl}));
+      });
+    }catch(e){ /* no-op for demo */ }
+  }
+  function schedule(q){ clearTimeout(timer); timer = setTimeout(()=>doFetch(q), debounceMs); }
+
+  function syncHiddenFromLabel(){
+    const lbl = text.value;
+    // Store mapped value if we know it, otherwise store the label the user typed
+    hidden.value = cache.has(lbl) ? cache.get(lbl) : lbl;
+  }
+
+  text.addEventListener("input", e=>{
+    const q = e.target.value || "";
+    if (q.length >= minChars) schedule(q);
+    // don't set hidden yet; wait for change/blur or exact match
+  });
+  text.addEventListener("change", syncHiddenFromLabel);
+  text.addEventListener("blur", syncHiddenFromLabel);
+
+  return row;
+}
+
+/* ---------- Simple + Array builders ---------- */
 function buildSimpleField(id, name, f, preset){
   const row = el("div", {class:"row"});
   const labelText = f.label || f.key;
+  const commonAttrs = a=>{
+    if (f.pattern) a.pattern = f.pattern;
+    if (f.min!=null) a.min = f.min;
+    if (f.max!=null) a.max = f.max;
+    if (f.minLength!=null) a.minLength = f.minLength;
+    if (f.maxLength!=null) a.maxLength = f.maxLength;
+    return a;
+  };
+
+  if (f.type === "lookup") return buildLookup(id, name, f, f.value);
+
   if (f.type !== "checkbox" && f.type !== "radio" && labelText) {
     row.appendChild(el("label", {"for":id}, labelText + (f.required ? " *" : "")));
   }
@@ -195,11 +321,11 @@ function buildSimpleField(id, name, f, preset){
   let fieldEl;
 
   if (f.type === "textarea") {
-    fieldEl = el("textarea", {id, name, placeholder:f.placeholder||"", required:!!f.required});
+    fieldEl = el("textarea", commonAttrs({id, name, placeholder:f.placeholder||"", required:!!f.required}));
     if (preset != null) fieldEl.value = preset;
 
   } else if (f.type === "select") {
-    fieldEl = el("select", {id, name, required:!!f.required});
+    fieldEl = el("select", commonAttrs({id, name, required:!!f.required}));
     (f.options||[]).forEach(opt=>{
       const o = el("option", {value:String(opt)}, String(opt));
       if (preset === opt) o.selected = true;
@@ -214,7 +340,7 @@ function buildSimpleField(id, name, f, preset){
       const r = el("input", {type:"radio", id:rid, name, value:String(opt)});
       if (preset === opt) r.checked = true;
       if (f.required && idx===0) r.required = true;
-      const lab = el("label", {"for":rid, class:"", style:"display:inline-block;margin-right:.75rem;vertical-align:middle"}, String(opt));
+      const lab = el("label", {"for":rid, style:"display:inline-block;margin-right:.75rem;vertical-align:middle"}, String(opt));
       fieldEl.appendChild(r); fieldEl.appendChild(lab);
     });
 
@@ -227,9 +353,9 @@ function buildSimpleField(id, name, f, preset){
 
   } else if (f.compute) {
     fieldEl = el("input", {type:"text", id, name, readOnly:true});
-    // value computed later
+
   } else {
-    fieldEl = el("input", {type:f.type||"text", id, name, placeholder:f.placeholder||"", required:!!f.required});
+    fieldEl = el("input", commonAttrs({type:f.type||"text", id, name, placeholder:f.placeholder||"", required:!!f.required}));
     if (preset != null) fieldEl.value = preset;
   }
 
@@ -243,7 +369,7 @@ function buildArrayField(form, f){
   const cont = el("div", {class:"soft", "data-arr": f.key});
   row.appendChild(cont);
 
-  const items = Array.isArray(f.value) ? JSON.parse(JSON.stringify(f.value)) : [{}];
+  const items = isArr(f.value) ? JSON.parse(JSON.stringify(f.value)) : [{}];
 
   function renderItems(){
     cont.innerHTML = "";
@@ -259,12 +385,11 @@ function buildArrayField(form, f){
       gi.appendChild(rm);
       cont.appendChild(gi);
     });
-    const add = el("button", {type:"button", class:"btn mini", onclick:()=>{ items.push({}); renderItems(); }}, "+ Add contact");
+    const add = el("button", {type:"button", class:"btn mini", onclick:()=>{ items.push({}); renderItems(); }}, "+ Add");
     cont.appendChild(add);
   }
   renderItems();
 
-  // expose collector for submit/read cycle
   row._collectArray = () => {
     const arr=[];
     cont.querySelectorAll('[data-idx]').forEach((gi,i)=>{
@@ -297,20 +422,16 @@ function buildField(form, f, trackers){
   const name = key;
 
   let row;
-  if (f.type === "array") {
-    row = buildArrayField(form, f);
-  } else {
-    row = buildSimpleField(id, name, f, f.value);
-  }
+  if (f.type === "array")       row = buildArrayField(form, f);
+  else                          row = buildSimpleField(id, name, f, f.value);
 
   // track showIf + compute
-  if (f.showIf) trackers.conds.push({el: row, cond: f.showIf, required: !!f.required});
+  if (f.showIf) trackers.conds.push({el: row, cond: f.showIf});
   if (f.compute) {
     const inputEl = row.querySelector("#"+CSS.escape(id));
     trackers.computes.push({el: inputEl, expr: f.compute});
   }
 
-  // mark row for later type/keys (used on submit)
   row.dataset.fieldKey = key;
   row.dataset.fieldType = f.type || (f.compute ? "compute" : "text");
   return row;
@@ -319,9 +440,12 @@ function buildField(form, f, trackers){
 /* ---------- Read current flat values (top-level only) ---------- */
 function readFlatValues(spec, form){
   const values = {};
-  (spec.fields||[]).forEach(f=>{
-    if (f.type === "array") return; // not part of flat compute/cond by default
-    if (f.type === "radio") {
+  fieldList(spec).forEach(f=>{
+    if (f.type === "array") return;
+    if (f.type === "lookup") {
+      const i = form.querySelector(`#${CSS.escape(f.key)}_value`);
+      values[f.key] = i ? i.value : null;
+    } else if (f.type === "radio") {
       const checked = form.querySelector(`input[name="${CSS.escape(f.key)}"]:checked`);
       values[f.key] = checked ? checked.value : null;
     } else if (f.type === "checkbox") {
@@ -343,7 +467,6 @@ function updateVisibilityAndCompute(spec, form, trackers){
   trackers.conds.forEach(c=>{
     const show = evalCond(c.cond, values);
     c.el.style.display = show ? "" : "none";
-    // disable/enable nested controls so HTML5 required won't block
     c.el.querySelectorAll("input,select,textarea").forEach(n=>{ n.disabled = !show; if(!show) n.required=false; });
   });
 
@@ -357,18 +480,21 @@ function updateVisibilityAndCompute(spec, form, trackers){
 /* ---------- Collect data (respects visibility) ---------- */
 function collectData(spec, form){
   const data = {};
-  (spec.fields||[]).forEach(f=>{
+  fieldList(spec).forEach(f=>{
     const row = form.querySelector(`[data-field-key="${CSS.escape(f.key)}"]`);
     const visible = !row || row.style.display !== "none";
 
+    if (!visible) return;
+
     if (f.type === "array") {
-      if (!visible) return;
       if (row._collectArray) data[f.key] = row._collectArray();
       return;
     }
-
-    if (!visible) return;
-
+    if (f.type === "lookup") {
+      const i = form.querySelector(`#${CSS.escape(f.key)}_value`);
+      data[f.key] = i ? i.value : null;
+      return;
+    }
     if (f.type === "radio") {
       const checked = form.querySelector(`input[name="${CSS.escape(f.key)}"]:checked`);
       data[f.key] = checked ? checked.value : null;
@@ -425,10 +551,20 @@ function render(){
   const form = el("form", {action:"#", method:"POST"});
   const trackers = {conds:[], computes:[]};
 
-  (spec.fields||[]).forEach(f=>{
-    const row = buildField(form, f, trackers);
-    form.appendChild(row);
-  });
+  if (isArr(spec.sections)) {
+    spec.sections.forEach(sec=>{
+      if (sec.title) form.appendChild(el("h3", {}, sec.title));
+      (sec.fields||[]).forEach(f=>{
+        const row = buildField(form, f, trackers);
+        form.appendChild(row);
+      });
+    });
+  } else {
+    (spec.fields||[]).forEach(f=>{
+      const row = buildField(form, f, trackers);
+      form.appendChild(row);
+    });
+  }
 
   // live updates (visibility + compute)
   form.addEventListener("input", ()=>updateVisibilityAndCompute(spec, form, trackers));
@@ -465,7 +601,7 @@ function render(){
   $("#out").appendChild(root);
 }
 
-/* ---------- Export (kept; you can ignore) ---------- */
+/* ---------- Export (still here; optional) ---------- */
 function exportHTML(){
   const currentDSL = (()=>{ try{return JSON.stringify(JSON.parse($("#dsl").value));}catch{ return JSON.stringify(DEFAULT_SPEC);} })();
   const seedScript = `<script>(function(){try{
@@ -473,7 +609,7 @@ function exportHTML(){
   }catch(e){}})();<\/script>`;
   const html = '<!DOCTYPE html>'+document.documentElement.outerHTML.replace('</body>', seedScript+'</body>');
   const blob = new Blob([html], {type:'text/html'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'form-builder.html';
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'form-engine.html';
   document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 600);
 }
 
